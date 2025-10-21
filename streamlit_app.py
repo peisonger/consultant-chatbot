@@ -55,14 +55,15 @@ def read_csv_safe(path: str) -> pd.DataFrame:
 @st.cache_data
 def load_all():
     df_profiles = read_csv_safe("data/analysis_cafe_profiles.csv")          # Q1
+    df_revisit  = read_csv_safe("data/under_30per_re_rate.csv")             # ✅ Q2 추가됨
     df_diag     = read_csv_safe("data/analysis_problem_diagnosis.csv")      # Q3
     try:
         df_map  = read_csv_safe("data/map.csv")                              # 업종 통합용(있으면)
     except Exception:
         df_map  = pd.DataFrame(columns=["HPSN_MCT_ZCD_NM","map"])
-    return df_profiles, df_diag, df_map
+    return df_profiles, df_revisit, df_diag, df_map
 
-df_profiles, df_diag, df_map = load_all()
+df_profiles, df_revisit, df_diag, df_map = load_all()
 
 # 점수 자동 추출 (임시)
 import re
@@ -122,40 +123,70 @@ def get_weather_summary() -> str:
         return "날씨 정보를 가져올 수 없음"
 
 # -----------------------------
-# 사이드바: 모드/Q1/Q3 설정
+# 사이드바: 모드 설정
 # -----------------------------
 st.title("🧠 비밀상담사 – Q1/Q2/Q3 챗봇")
 st.caption("Colab 분석 결과(Q1/Q2/Q3)를 Streamlit 챗봇으로 연결")
 
 with st.sidebar:
     st.header("⚙️ 상담 설정")
+
+    # 1️⃣ 모드/계절 공통 선택
     mode = st.radio("질문 선택", ["Q1 – 고객 특성", "Q2 – 재방문률 마케팅", "Q3 – 문제 진단"], horizontal=False)
     sel_season = st.selectbox("계절", list(SEASON_TO_MONTHS.keys()))
-    sel_industry = st.selectbox("업종(통합/원본)", INDUSTRIES)
 
-# 필터링(업종)
-if sel_industry != "전체":
-    df_prof_sel = df_profiles[df_profiles.get("map", df_profiles.get("HPSN_MCT_ZCD_NM","")) == sel_industry]
-    df_diag_sel = df_diag[df_diag.get("map", df_diag.get("HPSN_MCT_ZCD_NM","")) == sel_industry]
-else:
-    df_prof_sel, df_diag_sel = df_profiles.copy(), df_diag.copy()
-
-# Q1: 카페 상호 / Q2, Q3: 가맹점 상호
-with st.sidebar:
+    # 2️⃣ Q1: 카페 상호만 표시
     if mode.startswith("Q1"):
-        cafe_list = sorted(df_prof_sel.get("MCT_NM", pd.Series()).dropna().unique().tolist())
+        cafe_list = sorted(df_profiles.get("MCT_NM", pd.Series()).dropna().unique().tolist())
         sel_cafe = st.selectbox("카페 상호 (Q1)", cafe_list) if cafe_list else None
         st.caption("Q1: 고객 특성 + 계절/날씨로 프로모션/채널/문구 제안")
 
-    elif mode.startswith("Q2"):
-        shop_list = sorted(df_diag_sel.get("MCT_NM", pd.Series()).dropna().unique().tolist())
-        sel_shop = st.selectbox("가맹점 상호 (Q2)", shop_list) if shop_list else None
-        st.caption("Q2: 재방문률 + 날씨 기반 마케팅 전략/채널/문구 제안")
+    # 3️⃣ Q2/Q3: 업종 + 가맹점 상호 표시
+    else:
+        sel_industry = st.selectbox("업종(통합/원본)", INDUSTRIES)
 
-    elif mode.startswith("Q3"):
+        # 업종 필터링
+        if sel_industry != "전체":
+            df_prof_sel = df_profiles[df_profiles.get("map", df_profiles.get("HPSN_MCT_ZCD_NM","")) == sel_industry]
+            df_diag_sel = df_diag[df_diag.get("map", df_diag.get("HPSN_MCT_ZCD_NM","")) == sel_industry]
+        else:
+            df_prof_sel, df_diag_sel = df_profiles.copy(), df_diag.copy()
+
+        # Q2/Q3 공통 가맹점 상호 선택
         shop_list = sorted(df_diag_sel.get("MCT_NM", pd.Series()).dropna().unique().tolist())
-        sel_shop = st.selectbox("가맹점 상호 (Q3)", shop_list) if shop_list else None
-        st.caption("Q3: 진단 결과 + 계절/날씨로 객단가 개선 전략/채널/문구 제안")
+        sel_shop = st.selectbox(f"가맹점 상호 ({mode[:2]})", shop_list) if shop_list else None
+
+        if mode.startswith("Q2"):
+            st.caption("Q2: 재방문률 + 날씨 기반 마케팅 전략/채널/문구 제안")
+        else:
+            st.caption("Q3: 진단 결과 + 계절/날씨로 객단가 개선 전략/채널/문구 제안")
+
+# -----------------------------
+# 말풍선 대화 상태
+# -----------------------------
+if mode.startswith("Q1"):
+    key_history = "history_q1"
+elif mode.startswith("Q2"):
+    key_history = "history_q2"
+else:
+    key_history = "history_q3"
+
+if key_history not in st.session_state:
+    st.session_state[key_history] = []  # 각 모드별 독립 기록 유지
+
+st.markdown("### 💬 대화")
+for role, msg in st.session_state[key_history]:
+    st.chat_message(role).markdown(msg)
+
+# 입력창 안내문
+if mode.startswith("Q1"):
+    placeholder_text = "사장님, 어떤 고민이 있으신가요? (예: 봄 시즌 메뉴 아이디어 추천)"
+elif mode.startswith("Q2"):
+    placeholder_text = "사장님, 재방문률 관련 고민을 입력해주세요 (예: 여름에 손님이 줄어요)"
+else:
+    placeholder_text = "사장님, 어떤 고민이 있으신가요? (예: 장마 시작되면 뭘 팔까요?)"
+
+user_input = st.chat_input(placeholder_text)
 
 # -----------------------------
 # 프롬프트(Q1)
@@ -203,22 +234,10 @@ def prompt_q1(row: pd.Series, season: str, weather: str) -> str:
 3. 방금 추천한 바로 그 채널에 올릴 홍보 문구(해시태그 포함) 2줄.
 """
 
-
 # -----------------------------
 # (Q2) 재방문률 마케팅 로직
 # -----------------------------
 if mode.startswith("Q2"):
-    @st.cache_data
-    def load_revisit():
-        return read_csv_safe("data/under_30per_re_rate.csv")
-
-    df_revisit = load_revisit()
-
-    with st.sidebar:
-        shop_list = sorted(df_revisit.get("MCT_NM", pd.Series()).dropna().unique().tolist())
-        sel_shop = st.selectbox("가맹점 상호 (Q2)", shop_list) if shop_list else None
-
-    # 데이터 조회
     if sel_shop:
         row = df_revisit[df_revisit["MCT_NM"] == sel_shop].head(1)
         if not row.empty:
@@ -237,83 +256,20 @@ if mode.startswith("Q2"):
             else:
                 st.info(f"📊 재방문률이 가장 낮은 달은 **{worst_month}월**, 공략 대상 고객은 **{target_seg}**입니다.")
 
-            # LLM 프롬프트 생성
+            # Q2 프롬프트만 미리 준비 (입력창은 아래 공통 구간에서 사용)
             weather = get_weather_summary()
-            prompt_q2 = f"""
+            st.session_state["prompt_q2"] = f"""
 당신은 재방문률을 높이는 '날씨 기반 마케팅 전문가'입니다.
-아래 [데이터 분석 근거]와 [날씨 정보]를 바탕으로 사장님께 맞춤형 전략을 제안하세요.
-
-[데이터 분석 근거]
-- 가맹점명: {sel_shop}
-- 업종: {map_type}
-- 평균 재방문률: {avg_rate}%
-- 산업 평균 대비: {industry_avg}%
-- 주요 타겟 고객: {target_seg}
-- 재방문률이 낮은 달: {worst_month}월
-- 재방문률이 높은 달: {best_month}월
-
-[날씨 정보]
-- 현재 계절: {sel_season}
-- 실시간 기상 요약: {weather}
-- {worst_month}월 평균적으로 비율이 낮은 이유를 날씨 경향과 연결해 설명하세요.
-
-[요청 사항]
-1. {worst_month}월의 날씨 경향을 활용해 {target_seg} 고객을 공략할 구체적인 마케팅 전략 3가지 제시.
-2. 각 전략에 적합한 마케팅 채널 1개씩 추천하고 이유를 설명.
-3. 채널별 홍보 문구(해시태그 포함, 50자 이내) 작성.
+[가맹점명] {sel_shop}, 업종 {map_type}
+평균 재방문률 {avg_rate}%, 산업 평균 {industry_avg}%
+재방문률이 낮은 달 {worst_month}월, 높은 달 {best_month}월
+주요 타겟 고객 {target_seg}
+현재 계절 {sel_season}, 날씨 {weather}
+위 정보를 바탕으로 {worst_month}월에 재방문률을 높일 전략 3가지와
+각 전략에 적합한 채널 및 홍보 문구(해시태그 포함, 50자 이내)를 제안하세요.
 """
-
-            st.markdown("### 💬 대화")
-            for role, msg in st.session_state[key_history]:
-                st.chat_message(role).markdown(msg)
-
-            user_input = st.chat_input("사장님, 재방문률 관련 고민을 입력해주세요 (예: 7월 재방문률이 낮아요).")
-
-            if user_input:
-                st.session_state[key_history].append(("user", user_input))
-                st.chat_message("user").markdown(user_input)
-                with st.chat_message("assistant"):
-                    with st.spinner("전략 생성 중입니다…"):
-                        try:
-                            res = GEMINI.generate_content(prompt_q2)
-                            answer = res.text if res else "LLM 응답을 받을 수 없습니다."
-                        except Exception as e:
-                            answer = f"❌ 오류 발생: {e}"
-                    st.markdown(answer)
-                    st.session_state[key_history].append(("assistant", answer))
         else:
             st.warning("선택한 가맹점의 데이터가 없습니다.")
-
-# -----------------------------
-# 프롬프트(Q3) — 개선 버전
-# -----------------------------
-def prompt_q3(row: pd.Series, season: str, weather: str) -> str:
-    store = row.get("MCT_NM", "(미상)")
-    core = row.get("FINAL_DIAGNOSIS", "(미상)")
-    detail = str(row.get("DIAGNOSIS_DETAILS", "(세부 없음)"))
-    acq = row.get("acq_score", None)
-    prof = row.get("profit_score", None)
-
-    return f"""
-당신은 마케팅 컨설턴트입니다.
-
-[가게 진단 결과]
-- 가맹점명: {store}
-- 핵심 문제: {core}
-- 세부 내용: {detail}
-- 고객 유치력 점수: {acq if pd.notna(acq) else 'N/A'}
-- 수익 창출력 점수: {prof if pd.notna(prof) else 'N/A'}
-
-[현재 계절/날씨]
-- ({season}) {weather}
-
-[요청 사항]
-1. 위 진단 내용을 한 문장으로 요약해주세요.
-2. '{weather}' 날씨 조건에서 '객단가'를 높일 수 있는 메뉴/세트 구성 아이디어를 2가지 제안해주세요.
-3. 제안한 아이디어를 홍보하기에 가장 효과적인 마케팅 채널 1개를 추천하고, 그 이유를 간단히 설명해주세요.
-4. 방금 추천한 채널에 올릴 홍보 문구를 작성해주세요 (이모지/해시태그 포함, 100자 이내).
-"""
-
 
 # -----------------------------
 # (Q3) 자동 진단 요약 + 4분면 시각화
@@ -373,20 +329,6 @@ if mode.startswith("Q3"):
             st.caption("좌측에서 가맹점을 선택하면 4분면 그래프를 볼 수 있습니다.")
 
 
-
-# -----------------------------
-# 말풍선 대화 상태
-# -----------------------------
-key_history = "history_q1" if mode.startswith("Q1") else "history_q3"
-if key_history not in st.session_state:
-    st.session_state[key_history] = []  # [(role, msg)]
-
-st.markdown("### 💬 대화")
-for role, msg in st.session_state[key_history]:
-    st.chat_message(role).markdown(msg)
-
-user_input = st.chat_input("사장님, 어떤 고민이 있으신가요? (예: 장마 시작되면 뭘 팔까요?)")
-
 # -----------------------------
 # 사용자 입력 처리 및 LLM 호출
 # -----------------------------
@@ -398,22 +340,61 @@ if user_input:
         with st.spinner("분석 중입니다…"):
             weather = get_weather_summary()
 
+            # Q1 -------------------------------------
             if mode.startswith("Q1"):
                 if not sel_cafe:
-                    answer = "좌측에서 카페 상호를 먼저 선택해 주세요."
+                    answer = "좌측에서 **카페 상호**를 먼저 선택해 주세요."
                 else:
-                    row = df_prof_sel[df_prof_sel["MCT_NM"] == sel_cafe].head(1)
+                    row = df_profiles[df_profiles["MCT_NM"] == sel_cafe].head(1)
                     if row.empty:
                         answer = "해당 카페의 Q1 데이터가 없습니다."
                     else:
                         prompt = prompt_q1(row.squeeze(), sel_season, weather)
                         res = GEMINI.generate_content(prompt)
                         answer = res.text if res else "LLM 응답을 받을 수 없습니다."
-            else:  # Q3
+
+            # Q2 -------------------------------------
+            elif mode.startswith("Q2"):
                 if not sel_shop:
-                    answer = "좌측에서 가맹점 상호를 먼저 선택해 주세요."
+                    answer = "좌측에서 **가맹점 상호**를 먼저 선택해 주세요."
                 else:
-                    row = df_diag_sel[df_diag_sel["MCT_NM"] == sel_shop].head(1)
+                    row = df_revisit[df_revisit["MCT_NM"] == sel_shop].head(1)
+                    if row.empty:
+                        answer = "해당 가맹점의 Q2 데이터가 없습니다."
+                    else:
+                        r = row.squeeze()
+                        map_type = r.get("map", "(미상)")
+                        avg_rate = r.get("avg_re_rate", np.nan)
+                        worst_month = int(r.get("worst_month", 0))
+                        best_month = int(r.get("best_month", 0))
+                        target_seg = r.get("target_per_segment", "(미상)")
+                        industry_avg = r.get("industry_avg_re_rate", np.nan)
+
+                        weather = get_weather_summary()
+
+                        prompt_q2 = f"""
+            당신은 재방문률을 높이는 '날씨 기반 마케팅 전문가'입니다.
+            [가맹점명] {sel_shop}, 업종 {map_type}
+            평균 재방문률 {avg_rate}%, 산업 평균 {industry_avg}%
+            재방문률이 낮은 달 {worst_month}월, 높은 달 {best_month}월
+            주요 타겟 고객 {target_seg}
+            현재 계절 {sel_season}, 날씨 {weather}
+            위 정보를 바탕으로 {worst_month}월에 재방문률을 높일 전략 3가지와
+            각 전략에 적합한 채널 및 홍보 문구(해시태그 포함, 50자 이내)를 제안하세요.
+            """
+
+                        try:
+                            res = GEMINI.generate_content(prompt_q2)
+                            answer = res.text if res else "LLM 응답을 받을 수 없습니다."
+                        except Exception as e:
+                            answer = f"❌ 오류 발생: {e}"
+
+            # Q3 -------------------------------------
+            else:
+                if not sel_shop:
+                    answer = "좌측에서 **가맹점 상호**를 먼저 선택해 주세요."
+                else:
+                    row = df_diag[df_diag["MCT_NM"] == sel_shop].head(1)
                     if row.empty:
                         answer = "해당 가맹점의 Q3 진단 데이터가 없습니다."
                     else:
