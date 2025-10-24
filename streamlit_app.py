@@ -195,7 +195,7 @@ def handle_q1(user_input):
     
     # 3. [핵심 1] LLM에게 보낼 프롬프트 생성 
     prompt = f"""
-당신은 AI 마케터 'WEA, 위아'입니다. 당신의 이름을 꼭 기억하고, 소개해주세요.
+당신은 AI 마케터 'WEA, 위아'입니다. 당신의 이름을 꼭 소개해주세요.
 아래 [데이터 분석 근거]와 [날씨 정보]를 바탕으로 맞춤형 마케팅 전략을 제안하세요.
 
 [데이터 분석 근거]
@@ -239,6 +239,7 @@ def handle_q1(user_input):
 # Q2 – 재방문률 마케팅: 가게 이름을 타겟팅하여 해당 매장의 업종, 평균 재방문률, 공략 대상 고객층 데이터를 추출
 # -----------------------------
 def handle_q2(user_input):
+    month = datetime.date.today().month
     match = df_revisit[df_revisit["MCT_NM"].astype(str).apply(lambda x: isinstance(x, str) and x in user_input)]
     if match.empty:
         return "⚠️ 해당 가맹점의 재방문률 데이터가 없습니다."
@@ -256,9 +257,10 @@ def handle_q2(user_input):
 [평균 재방문률] {avg_rate}%
 [타깃 고객층] {target_seg}
 [현재 날씨] {weather}
+[현재 월] {month}
 
 [요청 사항]
-1. '{weather}'월의 날씨를 고려해 '{target_seg}' 고객층을 공략하는 전략 3가지.
+1. '{month}'월의 '{weather}'날씨를 고려해 '{target_seg}' 고객층을 공략하는 전략 3가지.
 2. 각 전략에 적합한 홍보 채널과 이유 설명.
 3. 100자 이내의 홍보 문구 작성 (이모지, 해시태그 포함).
 """
@@ -268,6 +270,7 @@ def handle_q2(user_input):
 # Q3 – 문제 진단 + 그래프: extract_scores 함수가 DIAGNOSIS_DETAILS라는 텍스트 컬럼에서 정규식(Regex)을 사용해 '고객 유치력 점수'(acq_score)와 '수익 창출력 점수'(profit_score)를 숫자로 추출한 뒤, 3.5점을 기준으로 두 점수를 조합하여 '스타 매장', '숨은 맛집형', '박리다매형', '위기 매장형' 4가지 diag_type으로 분류.
 # -----------------------------
 def handle_q3(user_input):
+    month = datetime.date.today().month
     match = df_diag[df_diag["MCT_NM"].astype(str).apply(lambda x: isinstance(x, str) and x in user_input)]
     if match.empty:
         return "⚠️ 해당 가맹점을 찾을 수 없습니다."
@@ -316,12 +319,12 @@ def handle_q3(user_input):
     st.pyplot(fig, use_container_width=True)
 
     prompt = f"""
-당신은 날씨와 계절, 매출을 읽고 알려주는 AI 마케터 'WEA, 위아'입니다. 당신의 이름을 꼭 기억하고, 소개해주세요.
+당신은 날씨와 계절, 매출을 읽고 알려주는 AI 마케터 'WEA, 위아'입니다. 당신의 이름을 꼭 소개해주세요.
 [{store}] 매장은 업종 [{industry}]이며, 고객 유치력 {acq}, 수익 창출력 {prof}점입니다.
-매장 유형은 {diag_type} ({diag_msg})이며, 현재 날씨는 {weather}입니다.
+매장 유형은 {diag_type} ({diag_msg})이며, 현재 날씨는 {weather}이고, 현재 월은 {month}입니다.
 
 [요청 사항]
-1. 수익성과 고객 유입을 동시에 높일 실행 전략 3가지.
+1. 위 매장 유형({diag_type})의 약점을 보완하고, **{month}월의 {weather} 날씨**를 고려하여 수익성과 고객 유입을 동시에 높일 실행 전략 3가지.
 2. 각 전략에 적합한 마케팅 채널과 이유 설명.
 3. 홍보 문구(이모지, 해시태그 포함, 100자 이내) 작성.
 """
@@ -412,7 +415,7 @@ def handle_q4(user_input):
 """
     
     prompt = f"""
-당신은 마케팅 AI 'WEA, 위아'입니다. 당신의 이름을 꼭 기억하고, 소개해주세요.
+당신은 마케팅 AI 'WEA, 위아'입니다. 당신의 이름을 꼭 소개해주세요.
 아래 [AI의 데이터 분석 결과]를 바탕으로 '비시즌' 마케팅 전략을 제안해주세요.
 
 [AI의 데이터 분석 결과]
@@ -424,12 +427,12 @@ def handle_q4(user_input):
 {ai_diagnosis_prompt_part}
 
 [요청 사항]
-위 [AI의 핵심 진단]에 따라,
-매출이 낮은 '비시즌'(예: {low_months_str} 등)에 고객의 발길을 끌 수 있는
-'시즌과 무관한' 또는 '인위적인 시즌(이벤트)'을 만드는
-구체적인 마케팅 방안 2가지를 제안해주세요.
-
-각 방안에 대해 홍보 문구(해시태그 포함, 100자 이내)도 함께 제안해주세요.
+1. 위 [AI의 핵심 진단]에 따라, **서울 성수동**이라는 위치 특성을 반영하여
+   매출이 낮은 '비시즌'(예: {low_months_str} 등)에 고객의 발길을 끌 수 있는
+   '시즌과 무관한' 또는 '인위적인 시즌(이벤트)'을 만드는
+   구체적인 마케팅 방안 2가지를 제안해주세요.
+2. (중요) 이 가게는 제주도가 아닌 **서울 성수동**에 있으므로, 제주 관광객 관련 내용은 제외하고 **성수동 직장인이나 방문객**에 초점을 맞춰주세요.
+3. 각 방안에 대해 홍보 문구(해시태그 포함, 100자 이내)도 함께 제안해주세요.
 """
     return ask_gemini(prompt)
 
@@ -495,7 +498,7 @@ def handle_q5(user_input):
 
     prompt = f"""
 당신은 대한민국 최고의 마케팅 전략가 'WEA, 위아'입니다.
-당신의 이름을 꼭 기억하고, 소개해주세요.
+당신의 이름을 꼭 소개해주세요.
 '{my_store_rank_info['MCT_NM']}' 가게 사장님에게 1위 달성을 위한 구체적이고 실행 가능한 전략을 제안해야 합니다.
 
 [데이터 분석 근거]
