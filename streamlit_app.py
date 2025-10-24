@@ -12,7 +12,7 @@ import google.generativeai as genai
 # -----------------------------
 # 기본 세팅
 # -----------------------------
-st.set_page_config(page_title="비밀상담사 – Q1/Q2/Q3 챗봇", page_icon="💡", layout="wide")
+st.set_page_config(page_title="WEA, 위아 – 시즌을 읽고 알려주는 마케터", page_icon="💡", layout="wide")
 plt.rcParams["font.family"] = "AppleGothic"
 plt.rcParams["axes.unicode_minus"] = False
 
@@ -195,7 +195,7 @@ def handle_q1(user_input):
     
     # 3. [핵심 1] LLM에게 보낼 프롬프트 생성 
     prompt = f"""
-당신은 마케팅 AI '비밀상담사'입니다.
+당신은 마케팅 AI 'WEA, 위아'입니다.
 아래 [데이터 분석 근거]와 [날씨 정보]를 바탕으로 맞춤형 마케팅 전략을 제안하세요.
 
 [데이터 분석 근거]
@@ -249,7 +249,7 @@ def handle_q2(user_input):
     target_seg = r.get("target_per_segment", "(미상)")
 
     prompt = f"""
-당신은 재방문률을 높이는 '날씨 기반 마케팅 전문가'입니다.
+당신은 재방문률을 높이는 날씨 기반 마케팅 전문가, 'WEA, 위아'입니다.
 
 [가맹점명] {store}
 [업종] {industry}
@@ -316,7 +316,7 @@ def handle_q3(user_input):
     st.pyplot(fig, use_container_width=True)
 
     prompt = f"""
-당신은 마케팅 컨설턴트입니다.
+당신은 날씨와 계절, 매출을 읽고 알려주는 AI 마케터 'WEA, 위아'입니다.
 [{store}] 매장은 업종 [{industry}]이며, 고객 유치력 {acq}, 수익 창출력 {prof}점입니다.
 매장 유형은 {diag_type} ({diag_msg})이며, 현재 날씨는 {weather}입니다.
 
@@ -412,7 +412,7 @@ def handle_q4(user_input):
 """
     
     prompt = f"""
-당신은 마케팅 AI '비밀상담사'입니다. 아래 [AI의 데이터 분석 결과]를 바탕으로 '비시즌' 마케팅 전략을 제안해주세요.
+당신은 마케팅 AI 'WEA, 위아'입니다. 아래 [AI의 데이터 분석 결과]를 바탕으로 '비시즌' 마케팅 전략을 제안해주세요.
 
 [AI의 데이터 분석 결과]
 - 가맹점명: {store} ({store_id})
@@ -493,7 +493,7 @@ def handle_q5(user_input):
     gap_label = col_to_korean.get(biggest_gap_col, biggest_gap_col)
 
     prompt = f"""
-당신은 대한민국 최고의 마케팅 전략가 '비밀상담사'입니다.
+당신은 대한민국 최고의 마케팅 전략가 'WEA, 위아'입니다.
 '{my_store_rank_info['MCT_NM']}' 가게 사장님에게 1위 달성을 위한 구체적이고 실행 가능한 전략을 제안해야 합니다.
 
 [데이터 분석 근거]
@@ -523,7 +523,7 @@ with col1:
     st.image("img/chatbot_icon.png", width=150) 
 
 with col2:
-    st.title("비밀상담사 – 날씨별 맞춤형 전략 제공 챗봇") 
+    st.title("WEA, 위아 – 시즌과 날씨를 읽고 알려주는 매출 파트너") 
 
 st.caption("💬 '고객 특성', '재방문율 마케팅', '문제 진단', '시계열 분석', '경쟁 분석' 키워드를 포함하면 자동 인식됩니다.")
 st.markdown("---")
